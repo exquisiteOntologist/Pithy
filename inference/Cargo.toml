@@ -1,0 +1,31 @@
+[package]
+name = "pithy"
+version = "0.1.0"
+authors = ["jon <hi@jonvaillant.com>"]
+edition = "2021"
+
+[dependencies]
+# libc = { version = "0.2", default-features = false }
+libc = { default-features = true }
+anyhow = "1.0.63"
+onnxruntime = { git = "https://github.com/JonVaillant/onnxruntime-rs", branch = "master" }
+serde = "1.0.144"
+serde_json = "1.0.85"
+tokenizers = "0.11.3"
+
+[profile.release]
+opt-level = 'z'     # Optimize for size.
+# opt-level = "s"
+lto = true          # Enable Link Time Optimization
+codegen-units = 1   # Reduce number of codegen units to increase optimizations.
+panic = 'abort'     # Abort on panic
+
+[lib]
+name = "lib"
+path = "src/lib.rs"
+
+[[bin]]
+name = "pithy"
+test = false
+bench = false
+
