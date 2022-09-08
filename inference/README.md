@@ -28,6 +28,8 @@ Selectively loading a model:
 
 - [x] Tokenization
 - [] Inference
-    - [] Inputs from tokens
-    - [] Pass inputs through model
+    - [x] Pass input text into tokenizer and get input IDs from it
+    - [x] Pass input IDs through encoder model
+    - [] Decode inputs to decoded IDs
+    - [] Decode decoded IDs with tokenizer to summarized strings outputs
 - [x] Model argument change to model directory argument for where model and related files reside

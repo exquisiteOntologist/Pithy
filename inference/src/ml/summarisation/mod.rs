@@ -60,47 +60,80 @@ pub fn main() -> Result<(), Box<dyn Error>> {
     let mask_shape = (1, attention_mask.len());
     let mask_array = ndarray::Array::from_shape_vec(mask_shape, attention_mask.clone()).unwrap();
 
-    // pub type EmbeddingArray =
-    //     Vec<ndarray::ArrayBase<ndarray::OwnedRepr<i64>, ndarray::Dim<[usize; 2]>>>;
-
-    // let embedding_array: Vec<ArrayBase<OwnedRepr<i64>, Dim<[usize; 2]>>> = vec![id_array, mask_array];
-
     let environment = Environment::builder()
         .with_name("app")
         .with_log_level(LoggingLevel::Verbose)
         .build()?;
 
     // note some models silently fail (for example model.onnx silently failed but encoder_model.onnx succeeded)
-    let mut session = environment
+    // probably because not all their inputs were satisfied
+    let mut session_encoder = environment
         .new_session_builder()?
         .with_optimization_level(GraphOptimizationLevel::All)?
         // .with_number_threads(4)?
         .with_model_from_file(model_path.join("encoder_model.onnx"))?;
 
-    let config = Config::from_file(&model_path.join("config.json"))?;
+    // let config = Config::from_file(&model_path.join("config.json"))?;
 
-    print_inputs_outputs(&session);
+    print_inputs_outputs(&session_encoder);
 
     // See example on line 91: https://github.com/JonVaillant/onnxruntime-rs/blob/master/onnxruntime/src/lib.rs
     let array_0: ArrayBase<OwnedRepr<i64>, Dim<[usize; 2]>> = id_array;
     let array_1: ArrayBase<OwnedRepr<i64>, Dim<[usize; 2]>> = mask_array;
     let input_tensor_values = vec![array_0, array_1];
 
-    let outputs: Vec<OrtOwnedTensor<f32, _>> = session.run(input_tensor_values)?;
-    // outputs[0] outputs[1]
+    let outputs_encoder: Vec<OrtOwnedTensor<f32, _>> = session_encoder.run(input_tensor_values)?;
    
 
-    println!("after");
+    println!("after encoder");
+
+
+    let mut session_decoder = environment
+        .new_session_builder()?
+        .with_optimization_level(GraphOptimizationLevel::All)?
+        // .with_number_threads(4)?
+        .with_model_from_file(model_path.join("decoder_model.onnx"))?;
+
+    // These ids are the encoder's sole output "last_hidden_state"
+    let encoder_ids = outputs_encoder[0].as_slice().unwrap().into_iter().map(|x| *x as i64).collect::<Vec<i64>>(); // Rust actually converts values when you use `as` (not just type)
+    let encoder_id_shape = (1, encoder_ids.len());
+    let encoder_id_array: ArrayBase<OwnedRepr<i64>, Dim<[usize; 2]>> = ndarray::Array::from_shape_vec(encoder_id_shape, encoder_ids.clone()).unwrap();
+    // ^ Interface wants them IDs to be i64, but the model wants them as float32
+
+    let array_0_decoder: ArrayBase<OwnedRepr<i64>, Dim<[usize; 2]>> = ndarray::Array::from_shape_vec(id_shape, ids.clone()).unwrap(); // input_ids int64
+    let array_1_decoder: ArrayBase<OwnedRepr<i64>, Dim<[usize; 2]>> = encoder_id_array; // encoder_hidden_states float32
+    let array_2_decoder: ArrayBase<OwnedRepr<i64>, Dim<[usize; 2]>> = ndarray::Array::from_shape_vec(mask_shape, attention_mask.clone()).unwrap(); // encoder_attention_mask int64
+
+    let input_tensor_values_decoder = vec![array_0_decoder, array_1_decoder, array_2_decoder];
+
+    println!("Before decoder");
+
+    let outputs_decoder: Vec<OrtOwnedTensor<f32, _>> = session_decoder.run(input_tensor_values_decoder)?;
+        
+    
+    println!("after decoder");
+
+    // assert_eq!(outputs[0].shape(), output0_shape.as_slice());
+    // for i in 0..5 {
+    //     println!("Score for class [{}] =  {}", i, outputs[0][[0, i, 0, 0]]);
+    // }
 
     // # seem to use huggingface tokenizers lib with their own ONNX model consumed into onnxruntime
     // https://github.com/HIT-SCIR/libltp/blob/56689f6be39aa30350ea5755a804df19e461222a/ltp-rs/src/interface.rs
     // https://crates.io/crates/tokenizers
 
+    
+    // encoding.token_to_word(token)
+
 
     Ok(())
 }
 
-/* 
+/** 
+    Prints the model outputs for a given Session.
+
+    ## Example output from printing a model
+
     Inputs:
     0:
         name = input_ids
