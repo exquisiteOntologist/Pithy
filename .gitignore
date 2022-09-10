@@ -15,3 +15,7 @@ Cargo.lock
 # Machine Learning Models
 *.onnx
 **/onnx/*
+
+# NET?
+**/bin/*
+**/obj/*

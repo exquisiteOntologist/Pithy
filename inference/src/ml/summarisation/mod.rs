@@ -1,12 +1,18 @@
+#![feature(associated_type_bounds)]
+
 use std::error::Error;
 use std::fs;
 use std::path::Path;
 use std::result::Result;
+use num::Num;
 use onnxruntime;
 use onnxruntime::GraphOptimizationLevel;
 use onnxruntime::LoggingLevel;
+use onnxruntime::TensorElementDataType;
+use onnxruntime::TypeToTensorElementDataType;
 use onnxruntime::environment::Environment;
 use onnxruntime::ndarray;
+use onnxruntime::ndarray::Array;
 use onnxruntime::ndarray::ArrayBase;
 use onnxruntime::ndarray::Dim;
 use onnxruntime::ndarray::OwnedRepr;
@@ -81,8 +87,8 @@ pub fn main() -> Result<(), Box<dyn Error>> {
     let array_0: ArrayBase<OwnedRepr<i64>, Dim<[usize; 2]>> = id_array;
     let array_1: ArrayBase<OwnedRepr<i64>, Dim<[usize; 2]>> = mask_array;
     let input_tensor_values = vec![array_0, array_1];
-
-    let outputs_encoder: Vec<OrtOwnedTensor<f32, _>> = session_encoder.run(input_tensor_values)?;
+    // Numbers + TensorElementDataType
+    let outputs_encoder = session_encoder.run(input_tensor_values)?;
    
 
     println!("after encoder");
@@ -94,40 +100,61 @@ pub fn main() -> Result<(), Box<dyn Error>> {
         // .with_number_threads(4)?
         .with_model_from_file(model_path.join("decoder_model.onnx"))?;
 
+    print_inputs_outputs(&session_decoder);
+
     // These ids are the encoder's sole output "last_hidden_state"
-    let encoder_ids = outputs_encoder[0].as_slice().unwrap().into_iter().map(|x| *x as i64).collect::<Vec<i64>>(); // Rust actually converts values when you use `as` (not just type)
+    let encoder_ids = outputs_encoder[0].as_slice().unwrap().into_iter().map(|x: &u32| *x as i64).collect::<Vec<i64>>(); // Rust actually converts values when you use `as` (not just type)
     let encoder_id_shape = (1, encoder_ids.len());
-    let encoder_id_array: ArrayBase<OwnedRepr<i64>, Dim<[usize; 2]>> = ndarray::Array::from_shape_vec(encoder_id_shape, encoder_ids.clone()).unwrap();
+    let encoder_id_array = ndarray::Array::from_shape_vec(encoder_id_shape, encoder_ids.clone()/* .into_iter().map(|x| x as i64).collect() */).unwrap();
     // ^ Interface wants them IDs to be i64, but the model wants them as float32
 
     let array_0_decoder: ArrayBase<OwnedRepr<i64>, Dim<[usize; 2]>> = ndarray::Array::from_shape_vec(id_shape, ids.clone()).unwrap(); // input_ids int64
-    let array_1_decoder: ArrayBase<OwnedRepr<i64>, Dim<[usize; 2]>> = encoder_id_array; // encoder_hidden_states float32
+    let array_1_decoder = encoder_id_array; // encoder_hidden_states float32
     let array_2_decoder: ArrayBase<OwnedRepr<i64>, Dim<[usize; 2]>> = ndarray::Array::from_shape_vec(mask_shape, attention_mask.clone()).unwrap(); // encoder_attention_mask int64
 
-    let input_tensor_values_decoder = vec![array_0_decoder, array_1_decoder, array_2_decoder];
+    // https://crates.io/crates/num
+    let input_tensor_values_decoder = vec![array_0_decoder, /* array_1_decoder, */ array_2_decoder];
+    // ^ The f32 array will not go in the i64 Vec, so we need to not pass the arrays with a single vec
+    // onnxruntime/src/tensor/ort_tensor.rs
+    // we need to update onnxruntime-rs to support manually specifying the tensors and not have them created from an array
+    // it's either update the rust runtime lib or quit
 
-    println!("Before decoder");
+    println!("Before decoder run");
 
-    let outputs_decoder: Vec<OrtOwnedTensor<f32, _>> = session_decoder.run(input_tensor_values_decoder)?;
+    let outputs_decoder: Vec<OrtOwnedTensor<i64, _>> = session_decoder.run(input_tensor_values_decoder)?;
         
     
     println!("after decoder");
 
-    // assert_eq!(outputs[0].shape(), output0_shape.as_slice());
-    // for i in 0..5 {
-    //     println!("Score for class [{}] =  {}", i, outputs[0][[0, i, 0, 0]]);
-    // }
+    struct NumberSet(i64, f32);
+
+    trait Numbers {
+        type i64;
+        type f32;
+    }
+
+    impl Numbers for NumberSet {
+        type i64 = i64;
+        type f32 = f32;
+    }
+
+    // let anInt: i64 = 3;
+    // let aFloat: f32 = 2.0;
+    // let b: &'a dyn Numbers = anInt;
+    // let c: &'a Numbers = aFloat;
+    // let d = b;
+
+    // ^ here tried TS/GO-style union types
+
 
     // # seem to use huggingface tokenizers lib with their own ONNX model consumed into onnxruntime
     // https://github.com/HIT-SCIR/libltp/blob/56689f6be39aa30350ea5755a804df19e461222a/ltp-rs/src/interface.rs
     // https://crates.io/crates/tokenizers
-
-    
-    // encoding.token_to_word(token)
-
+    // https://ecstatic-morse.github.io/rust/book/second-edition/ch17-02-trait-objects.html
 
     Ok(())
 }
+
 
 /** 
     Prints the model outputs for a given Session.
