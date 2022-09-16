@@ -9,7 +9,9 @@ edition = "2021"
 libc = { default-features = true }
 anyhow = "1.0.63"
 num = "0.4.0"
-onnxruntime = { git = "https://github.com/JonVaillant/onnxruntime-rs", branch = "master" }
+# onnxruntime = { git = "https://github.com/JonVaillant/onnxruntime-rs", branch = "master" }
+onnxruntime = { path = "../../misc-experiments/rust/onnxruntime-rs/onnxruntime" }
+onnxruntime-sys = { path = "../../misc-experiments/rust/onnxruntime-rs/onnxruntime-sys" }
 serde = "1.0.144"
 serde_json = "1.0.85"
 tokenizers = "0.11.3"

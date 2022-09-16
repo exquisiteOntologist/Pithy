@@ -10,6 +10,7 @@ use onnxruntime::GraphOptimizationLevel;
 use onnxruntime::LoggingLevel;
 use onnxruntime::TensorElementDataType;
 use onnxruntime::TypeToTensorElementDataType;
+use onnxruntime::TypedArray;
 use onnxruntime::environment::Environment;
 use onnxruntime::ndarray;
 use onnxruntime::ndarray::Array;
@@ -102,58 +103,43 @@ pub fn main() -> Result<(), Box<dyn Error>> {
 
     print_inputs_outputs(&session_decoder);
 
-    // These ids are the encoder's sole output "last_hidden_state"
-    let encoder_ids = outputs_encoder[0].as_slice().unwrap().into_iter().map(|x: &u32| *x as i64).collect::<Vec<i64>>(); // Rust actually converts values when you use `as` (not just type)
-    let encoder_id_shape = (1, encoder_ids.len());
-    let encoder_id_array = ndarray::Array::from_shape_vec(encoder_id_shape, encoder_ids.clone()/* .into_iter().map(|x| x as i64).collect() */).unwrap();
-    // ^ Interface wants them IDs to be i64, but the model wants them as float32
+    let encoder_hidden_states = outputs_encoder[0].as_slice().unwrap().into_iter().map(|x: &u32| *x as f32).collect::<Vec<f32>>(); // Rust actually converts values when you use `as` (not just type)
+    let encoder_hidden_states_shape = (1, encoder_hidden_states.len());
 
     let array_0_decoder: ArrayBase<OwnedRepr<i64>, Dim<[usize; 2]>> = ndarray::Array::from_shape_vec(id_shape, ids.clone()).unwrap(); // input_ids int64
-    let array_1_decoder = encoder_id_array; // encoder_hidden_states float32
+    let array_1_decoder = ndarray::Array::from_shape_vec(encoder_hidden_states_shape, encoder_hidden_states.clone()).unwrap(); // encoder_hidden_states_array encoder_hidden_states float32
     let array_2_decoder: ArrayBase<OwnedRepr<i64>, Dim<[usize; 2]>> = ndarray::Array::from_shape_vec(mask_shape, attention_mask.clone()).unwrap(); // encoder_attention_mask int64
 
-    // https://crates.io/crates/num
-    let input_tensor_values_decoder = vec![array_0_decoder, /* array_1_decoder, */ array_2_decoder];
-    // ^ The f32 array will not go in the i64 Vec, so we need to not pass the arrays with a single vec
-    // onnxruntime/src/tensor/ort_tensor.rs
-    // we need to update onnxruntime-rs to support manually specifying the tensors and not have them created from an array
-    // it's either update the rust runtime lib or quit
+
+    let decoder_input_0 = TypedArray::I64(array_0_decoder);
+    let decoder_input_1 = TypedArray::F32(array_1_decoder);
+    let decoder_input_2 = TypedArray::I64(array_2_decoder);
+    
+    let decoder_inputs = vec![decoder_input_0, decoder_input_1, decoder_input_2];
 
     println!("Before decoder run");
-
-    let outputs_decoder: Vec<OrtOwnedTensor<i64, _>> = session_decoder.run(input_tensor_values_decoder)?;
+    
+    session_decoder.run_mixed(decoder_inputs);
         
     
     println!("after decoder");
 
-    struct NumberSet(i64, f32);
-
-    trait Numbers {
-        type i64;
-        type f32;
-    }
-
-    impl Numbers for NumberSet {
-        type i64 = i64;
-        type f32 = f32;
-    }
-
-    // let anInt: i64 = 3;
-    // let aFloat: f32 = 2.0;
-    // let b: &'a dyn Numbers = anInt;
-    // let c: &'a Numbers = aFloat;
-    // let d = b;
-
-    // ^ here tried TS/GO-style union types
-
-
-    // # seem to use huggingface tokenizers lib with their own ONNX model consumed into onnxruntime
-    // https://github.com/HIT-SCIR/libltp/blob/56689f6be39aa30350ea5755a804df19e461222a/ltp-rs/src/interface.rs
-    // https://crates.io/crates/tokenizers
-    // https://ecstatic-morse.github.io/rust/book/second-edition/ch17-02-trait-objects.html
-
+    
     Ok(())
 }
+
+
+// struct NumberSet(i64, f32);
+
+// trait Numbers {
+//     type i64;
+//     type f32;
+// }
+
+// impl Numbers for NumberSet {
+//     type i64 = i64;
+//     type f32 = f32;
+// }
 
 
 /** 
