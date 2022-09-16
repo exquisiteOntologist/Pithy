@@ -107,9 +107,9 @@ pub fn main() -> Result<(), Box<dyn Error>> {
     let encoder_hidden_states = outputs_encoder[0].as_slice().unwrap().into_iter().map(|x: &u32| *x as f32).collect::<Vec<f32>>(); // Rust actually converts values when you use `as` (not just type)
     let encoder_hidden_states_shape = (1, encoder_hidden_states.len());
 
-    let array_0_decoder: ArrayBase<OwnedRepr<i64>, Dim<[usize; 2]>> = ndarray::Array::from_shape_vec(id_shape, ids.clone()).unwrap(); // input_ids int64
+    let array_0_decoder = ndarray::Array::from_shape_vec(id_shape, ids.clone()).unwrap(); // input_ids int64
     let array_1_decoder = ndarray::Array::from_shape_vec(encoder_hidden_states_shape, encoder_hidden_states.clone()).unwrap(); // encoder_hidden_states_array encoder_hidden_states float32
-    let array_2_decoder: ArrayBase<OwnedRepr<i64>, Dim<[usize; 2]>> = ndarray::Array::from_shape_vec(mask_shape, attention_mask.clone()).unwrap(); // encoder_attention_mask int64
+    let array_2_decoder = ndarray::Array::from_shape_vec(mask_shape, attention_mask.clone()).unwrap(); // encoder_attention_mask int64
 
 
     let decoder_input_0 = TypedArray::I64(array_0_decoder);
@@ -119,34 +119,39 @@ pub fn main() -> Result<(), Box<dyn Error>> {
     let decoder_inputs = vec![decoder_input_0, decoder_input_1, decoder_input_2];
 
     println!("Before decoder run");
+
+    // let x = session_decoder.outputs.
     
     // Vec<OrtOwnedTensor<u32, Dim<IxDynImpl>>>
-    let outputs_decoder: Result<Vec<OrtOwnedTensor<u32, Dim<IxDynImpl>>>, onnxruntime::OrtError> = session_decoder.run_mixed(decoder_inputs);
+    // let outputs_decoder: Result<Vec<OrtOwnedTensor<TypedArray<u8>, Dim<IxDynImpl>>>, onnxruntime::OrtError> = session_decoder.run_mixed(decoder_inputs);
+    let outputs_decoder: Result<Vec<OrtOwnedTensor<u8, Dim<IxDynImpl>>>, onnxruntime::OrtError> = session_decoder.run_mixed(decoder_inputs);
+    // let outputs_decoder: Result<Vec<OrtOwnedTensor<String, Dim<IxDynImpl>>>, onnxruntime::OrtError> = session_decoder.run_mixed(decoder_inputs);
     // ! ! ! ^ in VS-Code has errors but all good
     
     println!("after decoder");
 
-    let outputs_decoder_all = outputs_decoder.unwrap();
-    let outputs_count = outputs_decoder_all.iter().count();
+    println!("decoded? {}", outputs_decoder.is_ok());
+    // println!("decoded error? {}", outputs_decoder.err());
+
+    // outputs_decoder.map(|id_array: ArrayBase<OwnedRepr<i64>, Dim<[usize; 2]>>| op).
+
+    // for output_decoder in outputs_decoder {
+    //     if let Ok(n) = output_decoder.into_iter().map(|i| i) {
+    //         println!("{n}")
+    //     }
+    // }
+
+    // let outputs_decoder_all = outputs_decoder.unwrap();
+    let outputs_decoder_all = outputs_decoder.into_iter();
+    let outputs_count = outputs_decoder_all.count(); // there are 0 outputs
+    
+    // let outputs_count = outputs_decoder_all.as_slice().into_iter().count();/* .map(|x: &u32| *x. as f32) */
 
     println!("there are {} outputs", outputs_count);
 
     
     Ok(())
 }
-
-
-// struct NumberSet(i64, f32);
-
-// trait Numbers {
-//     type i64;
-//     type f32;
-// }
-
-// impl Numbers for NumberSet {
-//     type i64 = i64;
-//     type f32 = f32;
-// }
 
 
 /** 
@@ -198,3 +203,4 @@ fn print_inputs_outputs (session: &Session) {
         );
     }
 }
+
