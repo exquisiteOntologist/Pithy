@@ -16,6 +16,7 @@ use onnxruntime::ndarray;
 use onnxruntime::ndarray::Array;
 use onnxruntime::ndarray::ArrayBase;
 use onnxruntime::ndarray::Dim;
+use onnxruntime::ndarray::IxDynImpl;
 use onnxruntime::ndarray::OwnedRepr;
 use onnxruntime::session::Session;
 use onnxruntime::tensor::OrtOwnedTensor;
@@ -119,10 +120,16 @@ pub fn main() -> Result<(), Box<dyn Error>> {
 
     println!("Before decoder run");
     
-    session_decoder.run_mixed(decoder_inputs);
-        
+    // Vec<OrtOwnedTensor<u32, Dim<IxDynImpl>>>
+    let outputs_decoder: Result<Vec<OrtOwnedTensor<u32, Dim<IxDynImpl>>>, onnxruntime::OrtError> = session_decoder.run_mixed(decoder_inputs);
+    // ! ! ! ^ in VS-Code has errors but all good
     
     println!("after decoder");
+
+    let outputs_decoder_all = outputs_decoder.unwrap();
+    let outputs_count = outputs_decoder_all.iter().count();
+
+    println!("there are {} outputs", outputs_count);
 
     
     Ok(())
