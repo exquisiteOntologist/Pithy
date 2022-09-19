@@ -94,6 +94,7 @@ pub fn main() -> Result<(), Box<dyn Error>> {
    
 
     println!("after encoder");
+    println!("there are {} outputs from the encoder", outputs_encoder.as_slice().clone().into_iter().count());
 
 
     let mut session_decoder = environment
@@ -147,7 +148,7 @@ pub fn main() -> Result<(), Box<dyn Error>> {
     
     // let outputs_count = outputs_decoder_all.as_slice().into_iter().count();/* .map(|x: &u32| *x. as f32) */
 
-    println!("there are {} outputs", outputs_count);
+    println!("there are {} outputs from the decoder", outputs_count);
 
     
     Ok(())
