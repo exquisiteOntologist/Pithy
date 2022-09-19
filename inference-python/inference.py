@@ -22,6 +22,15 @@ for s in SENTENCES:
         SEGMENT = ""
     SEGMENT += s
     
+SEGMENT_SUMMARIES = []
+    
 for seg in SEGMENTS:
-    print(summarizer(seg, max_length=130, min_length=30, do_sample=False))
+    summary = summarizer(seg, max_length=130, min_length=30, do_sample=False)[0]["summary_text"]
+    print(summary)
+    SEGMENT_SUMMARIES.append(summary)
 
+JOINED_SEG_SUMMARIES = "".join(SEGMENT_SUMMARIES)
+
+MASTER_MIN_LENGTH = min(320, len(JOINED_SEG_SUMMARIES))
+
+print(summarizer(JOINED_SEG_SUMMARIES, max_length=560, min_length=MASTER_MIN_LENGTH, do_sample=True)[0]["summary_text"])
