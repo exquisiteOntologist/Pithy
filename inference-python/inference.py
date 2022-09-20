@@ -31,6 +31,9 @@ for seg in SEGMENTS:
 
 JOINED_SEG_SUMMARIES = "".join(SEGMENT_SUMMARIES)
 
-MASTER_MIN_LENGTH = min(320, len(JOINED_SEG_SUMMARIES))
+TOKEN_LENGTH = len(JOINED_SEG_SUMMARIES) / 4.7 # magic
+MASTER_MIN_LENGTH = min(320, TOKEN_LENGTH)
+MASTER_MAX_LENGTH = TOKEN_LENGTH
 
-print(summarizer(JOINED_SEG_SUMMARIES, max_length=560, min_length=MASTER_MIN_LENGTH, do_sample=True)[0]["summary_text"])
+print("master summary:")
+print(summarizer(JOINED_SEG_SUMMARIES, max_length=MASTER_MAX_LENGTH, min_length=MASTER_MIN_LENGTH, do_sample=True)[0]["summary_text"])

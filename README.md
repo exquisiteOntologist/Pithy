@@ -21,4 +21,10 @@ python create-bart-onnx.py
 
 ## Perform Inference
 
-- [] Inference not done yet
+- [] Inference
+    - [x] Python Inference (non-optimized)
+        - `./inference-python`
+        - Close to [huggingface.co](huggingface.co) examples
+    - [] Fast Inference
+        - `./inference`
+        - Case-specific summarization pipeline being built in Rust
